@@ -35,8 +35,5 @@ lerna-debug.log*
 
 # Important secrets
 .env
-.sqlite
 .env.prod
 *.txt
-
-

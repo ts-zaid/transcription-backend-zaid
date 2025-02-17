@@ -157,6 +157,12 @@ exports.getAllRecordings = async (req, res) => {
     if (dateAfter) filters.dateCreatedAfter = new Date(dateAfter).toISOString().split("T")[0];
     if (dateBefore) filters.dateCreatedBefore = new Date(dateBefore).toISOString().split("T")[0];
 
+    // 🔹 Fetch Total Recordings for Pagination (to calculate total pages)
+    const totalRecordings = await client.recordings.list({
+      ...filters,
+      limit: undefined, // Fetch all recordings without the limit for total count
+    });
+
     // 🔹 Fetch Recordings with Filters
     const recordings = await client.recordings.list(filters);
 
@@ -178,6 +184,9 @@ exports.getAllRecordings = async (req, res) => {
       })
     );
 
+    // 🔹 Calculate Total Pages
+    const totalPages = Math.ceil(totalRecordings.length / filters.limit);
+
     // 🔹 Pagination Setup (Next Page Logic)
     const nextPage = recordings.length === filters.limit ? parseInt(filters.page) + 1 : null;
 
@@ -187,6 +196,7 @@ exports.getAllRecordings = async (req, res) => {
       page: filters.page,
       pageSize: filters.limit,
       nextPage: nextPage,
+      totalPages: totalPages,
       recordings: enrichedRecordings,
     });
   } catch (error) {
@@ -194,6 +204,7 @@ exports.getAllRecordings = async (req, res) => {
     res.status(500).json({ success: false, message: "Error fetching recordings", error: error.message });
   }
 };
+
 
 
 // 📊 Fetch Audio Stats from Twilio Recordings
@@ -206,6 +217,7 @@ exports.getAudioStats = async (req, res) => {
     const today = moment().startOf("day");
     const yesterday = moment().subtract(1, "days").startOf("day");
     const last7Days = moment().subtract(7, "days").startOf("day");
+    const last30Days = moment().subtract(30, "days").startOf("day");
 
     // Filter recordings based on creation date
     const todayCount = recordings.filter(rec => moment(rec.dateCreated).isSameOrAfter(today)).length;
@@ -213,14 +225,16 @@ exports.getAudioStats = async (req, res) => {
       moment(rec.dateCreated).isBetween(yesterday, today, null, "[)")
     ).length;
     const last7DaysCount = recordings.filter(rec => moment(rec.dateCreated).isSameOrAfter(last7Days)).length;
+    const last30DaysCount = recordings.filter(rec => moment(rec.dateCreated).isSameOrAfter(last30Days)).length;
 
     res.json({
-      "success": true,
-      "message": "Stats List",
+      success: true,
+      message: "Stats List",
       data: {
         audio_received_today: todayCount,
         audio_received_yesterday: yesterdayCount,
-        audio_received_last_7_days: last7DaysCount
+        audio_received_last_7_days: last7DaysCount,
+        audio_received_last_30_days: last30DaysCount
       }
     });
   } catch (error) {
